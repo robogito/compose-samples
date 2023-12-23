@@ -1,0 +1,215 @@
+version: "3.3"
+
+networks:
+  apisix:
+    driver: bridge
+
+services:
+
+  # Local SSL (uncomment it, if you have new hosts added)
+  # minica:
+  #   image: ghcr.io/bjornsnoen/minica-traefik-api:latest
+  #   volumes:
+  #     - ../certificates:/app/certificates
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   environment:
+  #     DOCKER_HOST: unix:///var/run/docker.sock
+  #     DOCKER_LISTEN: yes
+  #   restart: unless-stopped
+  #   labels:
+  #     - traefik.enable=true
+  #     - traefik.http.routers.dev_minica.rule=Host(`${MINICA_HOST_NAME}`)
+  #     - traefik.http.routers.dev_minica.middlewares=redirectssl@docker
+  #     - traefik.http.routers.dev_minica_ssl.rule=Host(`${MINICA_HOST_NAME}`)
+  #     - traefik.http.routers.dev_minica_ssl.tls=true
+  #   networks:
+  #     - apisix
+
+  # Edge router
+  traefik:
+    image: traefik:v2.10
+    command:
+      #- --log.level=DEBUG
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.file.directory=/app/certificates
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ../certificates:/app/certificates
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.redirectssl.redirectscheme.scheme=https
+      - traefik.http.routers.dev_traefik.rule=Host(`${TRAEFIK_HOST_NAME}`)
+      - traefik.http.routers.dev_traefik.middlewares=redirectssl@docker
+      - traefik.http.routers.dev_traefik_ssl.rule=Host(`${TRAEFIK_HOST_NAME}`)
+      - traefik.http.routers.dev_traefik_ssl.tls=true
+      - traefik.http.services.dev_traefik.loadbalancer.server.port=8080
+    networks:
+      - apisix
+
+  # App frontend & backend
+  backend:
+    build:
+      context: .
+      dockerfile: ./config/Dockerfile
+    command: bash -c 'while !</dev/tcp/${DB_HOST_NAME}/5432; do sleep 1; done; gunicorn --bind 0.0.0.0:8000 --reload wsgi:application'
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/usr/src/app
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_backend.rule=Host(`${BACKEND_HOST_NAME}`)
+      - traefik.http.routers.dev_backend.middlewares=redirectssl@docker
+      - traefik.http.services.dev_backend.loadbalancer.server.port=8000
+      - traefik.http.routers.dev_backend_ssl.rule=Host(`${BACKEND_HOST_NAME}`)
+      - traefik.http.routers.dev_backend_ssl.tls=true
+    networks:
+      - apisix
+
+  frontend:
+    image: node:20-slim
+    working_dir: /usr/src/app
+    command: bash -c 'while true; do sleep 1; done;'
+    volumes:
+      - ./frontend:/usr/src/app
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_frontend.rule=Host(`${FRONTEND_HOST_NAME}`)
+      - traefik.http.routers.dev_frontend.middlewares=redirectssl@docker
+      - traefik.http.services.dev_frontend.loadbalancer.server.port=5173
+      - traefik.http.routers.dev_frontend_ssl.rule=Host(`${FRONTEND_HOST_NAME}`)
+      - traefik.http.routers.dev_frontend_ssl.tls=true
+    networks:
+      - apisix
+
+  # SSO
+  keycloak:
+    image: docker.io/bitnami/keycloak:22
+    environment:
+      - KEYCLOAK_CREATE_ADMIN_USER=true
+      - KEYCLOAK_ADMIN_USER=${KEYCLOAK_ADMIN_USER}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - KEYCLOAK_DATABASE_HOST=${DB_HOST_NAME}
+      - KEYCLOAK_DATABASE_NAME=${KEYCLOAK_DATABASE_NAME}
+      - KEYCLOAK_DATABASE_USER=${DB_USER}
+      - KEYCLOAK_DATABASE_PASSWORD=${DB_USER_PASSWORD}
+      - KEYCLOAK_PROXY=edge
+    depends_on:
+      - postgres
+    volumes:
+      - ./shared/keycloak/mynewtheme:/opt/bitnami/keycloak/themes/mynewtheme
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_keycloak.rule=Host(`${KEYCLOAK_HOST_NAME}`)
+      - traefik.http.routers.dev_keycloak.middlewares=redirectssl@docker
+      - traefik.http.services.dev_keycloak.loadbalancer.server.port=8080
+      - traefik.http.routers.dev_keycloak_ssl.rule=Host(`${KEYCLOAK_HOST_NAME}`)
+      - traefik.http.routers.dev_keycloak_ssl.tls=true
+    networks:
+      - apisix
+
+  # Database
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - ./config/pg-multi-db:/docker-entrypoint-initdb.d
+      - ./shared/db:/var/lib/postgresql/data/
+    expose:
+      - 5432
+    environment:
+      - POSTGRES_MULTIPLE_DATABASES=${BACKEND_DATABASE_NAME},${KEYCLOAK_DATABASE_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_USER_PASSWORD}
+    networks:
+      - apisix
+
+  pgadmin:
+    image: dpage/pgadmin4:8.1
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      - PGADMIN_DISABLE_POSTFIX=true
+    depends_on:
+      - postgres
+    volumes:
+      - ./shared/pgadmin:/var/lib/pgadmin
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_pgadmin.rule=Host(`${PGADMIN_HOST_NAME}`)
+      - traefik.http.routers.dev_pgadmin.middlewares=redirectssl@docker
+      - traefik.http.services.dev_pgadmin.loadbalancer.server.port=80
+      - traefik.http.routers.dev_pgadmin_ssl.rule=Host(`${PGADMIN_HOST_NAME}`)
+      - traefik.http.routers.dev_pgadmin_ssl.tls=true
+    networks:
+      - apisix
+
+  # API Gateway
+  apisix:
+    image: apache/apisix:3.7.0-debian
+    volumes:
+      - ./config/apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+    ports:
+      - 9180:9180/tcp
+      - 9091:9091/tcp
+      - 9443:9443/tcp
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_apisix.rule=Host(`${APISIX_HOST_NAME}`)
+      - traefik.http.routers.dev_apisix.middlewares=redirectssl@docker
+      - traefik.http.services.dev_apisix.loadbalancer.server.port=9080/tcp
+      - traefik.http.routers.dev_apisix_ssl.rule=Host(`${APISIX_HOST_NAME}`)
+      - traefik.http.routers.dev_apisix_ssl.tls=true
+    networks:
+      - apisix
+
+  apisix_dashboard:
+    image: apache/apisix-dashboard:3.0.1-alpine
+    volumes:
+      - ./config/apisix/dashboard.yaml:/usr/local/apisix-dashboard/conf/conf.yaml:ro
+    depends_on:
+      - etcd
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_apisix_admin.rule=Host(`${APISIX_ADMIN_HOST_NAME}`)
+      - traefik.http.routers.dev_apisix_admin.middlewares=redirectssl@docker
+      - traefik.http.services.dev_apisix_admin.loadbalancer.server.port=9000
+      - traefik.http.routers.dev_apisix_admin_ssl.rule=Host(`${APISIX_ADMIN_HOST_NAME}`)
+      - traefik.http.routers.dev_apisix_admin_ssl.tls=true
+    networks:
+      - apisix
+
+  etcd:
+    image: bitnami/etcd:3.4.9
+    user: root
+    volumes:
+      - ./shared/etcd:/etcd_data
+    environment:
+      ETCD_DATA_DIR: /etcd_data
+      ETCD_ENABLE_V2: true
+      ALLOW_NONE_AUTHENTICATION: yes
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+    ports:
+      - 2379:2379/tcp
+    networks:
+      - apisix
+
+  # Dev mailcatcher
+  mailhog:
+    image: mailhog/mailhog
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_mailhog.rule=Host(`${MAILHOG_HOST_NAME}`)
+      - traefik.http.routers.dev_mailhog.entrypoints=web
+      - traefik.http.routers.dev_mailhog.service=dev_mailhog
+      - traefik.http.services.dev_mailhog.loadbalancer.server.port=1025
+      - traefik.http.services.dev_mailhog.loadbalancer.server.port=8025
+    networks:
+      - apisix

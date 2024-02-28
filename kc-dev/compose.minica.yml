@@ -1,0 +1,26 @@
+version: "3.3"
+
+networks:
+  apisix:
+    driver: bridge
+
+services:
+
+  # Local SSL (run it, if you have new hosts added)
+  minica:
+    image: ghcr.io/bjornsnoen/minica-traefik-api:latest
+    volumes:
+      - ../certificates:/app/certificates
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_LISTEN: yes
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_minica.rule=Host(`${MINICA_HOST_NAME}`)
+      - traefik.http.routers.dev_minica.middlewares=redirectssl@docker
+      - traefik.http.routers.dev_minica_ssl.rule=Host(`${MINICA_HOST_NAME}`)
+      - traefik.http.routers.dev_minica_ssl.tls=true
+    networks:
+      - apisix

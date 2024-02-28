@@ -1,0 +1,31 @@
+version: "3.3"
+
+services:
+
+  #SSO (SSL disabled for dev!)
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.6
+    environment:
+      - KEYCLOAK_CREATE_ADMIN_USER=true
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+      - KC_DB_USERNAME=${DB_USER}
+      - KC_DB_PASSWORD=${DB_USER_PASSWORD}
+      - KC_HOSTNAME=${KEYCLOAK_HOST_NAME}
+      - KC_PROXY=edge
+    command: start-dev
+    depends_on:
+      - postgres
+    volumes:
+      - ./shared/keycloak/minitheme:/opt/keycloak/themes/minitheme
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.keycloak.rule=Host(`${KEYCLOAK_HOST_NAME}`)
+      # - traefik.http.routers.keycloak.middlewares=redirectssl@docker
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
+      # - traefik.http.routers.keycloak_ssl.rule=Host(`${KEYCLOAK_HOST_NAME}`)
+      # - traefik.http.routers.keycloak_ssl.tls=true
+    networks:
+      apisix:

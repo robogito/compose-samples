@@ -1,0 +1,45 @@
+version: "3.3"
+
+include:
+  - compose.phpapp.yml
+  - compose.keycloack.yml
+  - compose.devapps.yml
+
+networks:
+  apisix:
+    # ipam:
+    #   driver: default
+    #   config:
+    #     - subnet: 10.10.0.0/16
+
+services:
+
+  # Edge router
+  traefik:
+    image: traefik:v2.10
+    restart: always
+    command:
+      #- --log.level=DEBUG
+      - --api.insecure=true
+      - --global.sendAnonymousUsage=false
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.file.directory=/app/certificates
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ../certificates:/app/certificates
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.redirectssl.redirectscheme.scheme=https
+      - traefik.http.routers.tfk.rule=Host(`${TRAEFIK_HOST_NAME}`)
+      - traefik.http.routers.tfk.middlewares=redirectssl@docker
+      - traefik.http.routers.tfk_ssl.rule=Host(`${TRAEFIK_HOST_NAME}`)
+      - traefik.http.routers.tfk_ssl.tls=true
+      - traefik.http.services.tfk.loadbalancer.server.port=8080
+    networks:
+      apisix:

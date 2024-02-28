@@ -1,0 +1,73 @@
+version: "3.3"
+
+services:
+
+  # App
+  app:
+    image: robogito/php-nginx:8.3
+    restart: unless-stopped
+    working_dir: /www
+    volumes:
+      - ./${APP_SRC_FOLDER}:/www
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.app.rule=Host(`${APP_HOST_NAME}`)
+      - traefik.http.routers.app.middlewares=redirectssl@docker
+      - traefik.http.services.app.loadbalancer.server.port=80
+      - traefik.http.routers.app_ssl.rule=Host(`${APP_HOST_NAME}`)
+      - traefik.http.routers.app_ssl.tls=true
+    networks:
+      apisix:
+
+  cron:
+    image: robogito/php-cron:8.3
+    restart: unless-stopped
+    working_dir: /www
+    volumes:
+      - ./${APP_SRC_FOLDER}:/www
+    labels:
+      - traefik.enable=false
+    networks:
+      apisix:
+
+  # Database
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - ./config/pg-multi-db:/docker-entrypoint-initdb.d
+      - ./shared/db:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_MULTIPLE_DATABASES=${APP_DATABASE_NAME},${KEYCLOAK_DATABASE_NAME},${EXTRA_DATABASE_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_USER_PASSWORD}
+    networks:
+      apisix:
+
+  # Redis
+  redis:
+    image: redis:7.2.3
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - ./shared/redis:/data
+    labels:
+      - traefik.enable=false
+    networks:
+      apisix:
+
+  # Minio
+  # minio:
+  #   image: minio/minio
+  #   ports:
+  #     - 9000:9000
+  #     - 9001:9001
+  #   volumes:
+  #     - ./shared/minio:/data
+  #     - ./config/minio:/root/.minio
+  #   environment:
+  #     MINIO_ROOT_USER: ${MINIO_USER}
+  #     MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+  #   command: server /data --console-address ":9001"
+  #   networks:
+  #     apisix:

@@ -1,0 +1,61 @@
+version: "3.3"
+
+services:
+
+  # DEV: Node
+  node:
+    image: node:20-slim
+    working_dir: /www
+    command: bash -c 'while true; do sleep 1; done;'
+    volumes:
+      - ./${APP_SRC_FOLDER}:/www
+    labels:
+      - traefik.enable=false
+    networks:
+      apisix:
+
+  # DEV: Composer
+  composer:
+    image: composer:2.7.1
+    working_dir: /www
+    command: bash -c 'while true; do sleep 1; done;'
+    volumes:
+      - ./${APP_SRC_FOLDER}:/www
+    labels:
+      - traefik.enable=false
+    networks:
+      apisix:
+
+  # DEV: Pgadmin
+  pgadmin:
+    image: dpage/pgadmin4:8.2
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+      - PGADMIN_DISABLE_POSTFIX=true
+    depends_on:
+      - postgres
+    volumes:
+      - ./shared/pgadmin:/var/lib/pgadmin
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_pgadmin.rule=Host(`${PGADMIN_HOST_NAME}`)
+      - traefik.http.routers.dev_pgadmin.middlewares=redirectssl@docker
+      - traefik.http.services.dev_pgadmin.loadbalancer.server.port=80
+      - traefik.http.routers.dev_pgadmin_ssl.rule=Host(`${PGADMIN_HOST_NAME}`)
+      - traefik.http.routers.dev_pgadmin_ssl.tls=true
+    networks:
+      apisix:
+
+  # DEV: Mailcatcher
+  mailhog:
+    image: mailhog/mailhog
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_mailhog.rule=Host(`${MAILHOG_HOST_NAME}`)
+      - traefik.http.routers.dev_mailhog.entrypoints=web
+      - traefik.http.routers.dev_mailhog.service=dev_mailhog
+      - traefik.http.services.dev_mailhog.loadbalancer.server.port=1025
+      - traefik.http.services.dev_mailhog.loadbalancer.server.port=8025
+    networks:
+      apisix:

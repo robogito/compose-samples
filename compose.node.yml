@@ -1,0 +1,31 @@
+services:
+
+  app:
+    image: node:21-bookworm
+    working_dir: /usr/src/app
+    command: bash -c 'while true; do sleep 1; done;' #npm start
+    volumes:
+      - ./project:/usr/src/app
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dev_frontend.rule=Host(`${APP_HOST_NAME}`)
+      - traefik.http.routers.dev_frontend.middlewares=redirectssl@docker
+      - traefik.http.services.dev_frontend.loadbalancer.server.port=3000
+      - traefik.http.routers.dev_frontend_ssl.rule=Host(`${APP_HOST_NAME}`)
+      - traefik.http.routers.dev_frontend_ssl.tls=true
+    networks:
+      - apisix
+
+  # Database
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - ./config/pg-multi-db:/docker-entrypoint-initdb.d
+      - ./shared/db:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_MULTIPLE_DATABASES=${APP_DATABASE_NAME},${SSO_DATABASE_NAME},${EXTRA_DATABASE_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_USER_PASSWORD}
+    networks:
+      - apisix

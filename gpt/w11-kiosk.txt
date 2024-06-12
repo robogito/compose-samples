@@ -1,0 +1,56 @@
+Um einen Kioskmodus auf einem Windows 11-Gerät einzurichten, bei dem nur die Microsoft Edge-App nutzbar ist und der Zugriff auf USB-Laufwerke erlaubt bleibt, können Sie die folgenden Schritte befolgen:
+
+## Schritt-für-Schritt-Anleitung
+
+### 1. Kioskmodus einrichten
+
+1. **Einstellungen öffnen**:
+   - Drücken Sie die **Windows-Taste + i**, um die Einstellungen zu öffnen.
+   - Navigieren Sie zu **Konten** und wählen Sie **Familie & andere Benutzer** aus.
+
+2. **Kiosk einrichten**:
+   - Scrollen Sie nach unten zum Abschnitt **Kiosk einrichten** und klicken Sie auf **Los geht’s**.
+
+3. **Kiosk-Konto erstellen**:
+   - Geben Sie einen Namen für das Kiosk-Konto ein und klicken Sie auf **Weiter**.
+
+4. **Kiosk-App auswählen**:
+   - Wählen Sie **Microsoft Edge** als die Kiosk-App aus und klicken Sie auf **Weiter**.
+   - Wählen Sie den Modus **Digitale/interaktive Beschilderung** oder **Öffentliches Surfen**, je nach Ihren Anforderungen.
+
+5. **URL festlegen**:
+   - Wenn Sie den Modus **Digitale/interaktive Beschilderung** gewählt haben, geben Sie die URL der Website ein, die im Vollbildmodus angezeigt werden soll.
+
+### 2. Zugriff auf USB-Laufwerke erlauben
+
+Standardmäßig sollte der Zugriff auf USB-Laufwerke im Kioskmodus nicht eingeschränkt sein. Falls es dennoch Probleme gibt, können Sie die Berechtigungen manuell anpassen:
+
+1. **Gruppenrichtlinien-Editor öffnen**:
+   - Drücken Sie **Windows-Taste + R**, geben Sie **gpedit.msc** ein und drücken Sie **Enter**.
+
+2. **Richtlinie anpassen**:
+   - Navigieren Sie zu **Computerkonfiguration** > **Administrative Vorlagen** > **System** > **Wechselmedienzugriff**.
+   - Stellen Sie sicher, dass die Richtlinien **Wechselmedien: Zugriff verweigern** auf **Nicht konfiguriert** oder **Deaktiviert** gesetzt sind.
+
+### 3. Kioskmodus verlassen
+
+Um den Kioskmodus zu verlassen, drücken Sie **Strg + Alt + Entf** und melden Sie sich mit einem anderen Benutzerkonto an.
+
+## Zusammenfassung
+
+Durch diese Schritte richten Sie einen Kioskmodus auf einem Windows 11-Gerät ein, bei dem nur die Microsoft Edge-App nutzbar ist und der Zugriff auf USB-Laufwerke erlaubt bleibt. Diese Konfiguration ist ideal für öffentliche Terminals oder spezielle Anwendungsfälle, bei denen der Zugriff auf andere Anwendungen und Einstellungen eingeschränkt werden soll, während der Zugriff auf externe Speichergeräte weiterhin möglich ist.
+
+Quellen:
+- [1] Microsoft Edge-Kioskmodus konfigurieren
+- [2] Windows 11: Kioskmodus einrichten - TecChannel Workshop
+- [3] Kioskeinstellungen für Windows 10/11 in Microsoft Intune
+
+Citations:
+[1] https://learn.microsoft.com/de-de/deployedge/microsoft-edge-configure-kiosk-mode
+[2] https://www.tecchannel.de/a/kioskmodus-einrichten,3278491
+[3] https://learn.microsoft.com/de-de/mem/intune/configuration/kiosk-settings-windows
+[4] https://blog.scalefusion.com/de/what-is-windows-kiosk-mode/
+[5] https://www.computerbild.de/artikel/cb-Tipps-Software-Windows-Kioskmodus-aktivieren-23232485.html
+[6] https://blog.scalefusion.com/de/how-to-set-up-kiosk-mode-on-windows-11/
+[7] https://answers.microsoft.com/de-de/windows/forum/all/keine-berechtigung-des-zugriffs-auf-usb-anschluss/c16b7b67-351a-45ae-a0d2-6ac213ee944e
+[8] https://learn.microsoft.com/de-de/mem/intune/configuration/device-restrictions-windows-10
